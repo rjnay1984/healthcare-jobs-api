@@ -12,6 +12,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HealthcareJobs.Infrastructure\HealthcareJobs.Infrastructure.csproj" />
+    <ProjectReference Include="..\HealthcareJobs.Core\HealthcareJobs.Core.csproj" />
+    <ProjectReference Include="..\HealthcareJobs.Shared\HealthcareJobs.Shared.csproj" />
   </ItemGroup>
 
 </Project>
