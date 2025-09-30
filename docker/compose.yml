@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:15
+    image: postgres
     environment:
       POSTGRES_DB: healthcare_jobs
       POSTGRES_USER: postgres

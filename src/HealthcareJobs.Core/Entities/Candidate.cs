@@ -10,11 +10,11 @@ public class Candidate : BaseEntity
     
     [Required]
     [StringLength(100)]
-    public string FirstName { get; set; } = string.Empty;
+    public required string FirstName { get; set; }
     
     [Required]
     [StringLength(100)]
-    public string LastName { get; set; } = string.Empty;
+    public required string LastName { get; set; }
     
     [StringLength(50)]
     public string? LicenseNumber { get; set; }
