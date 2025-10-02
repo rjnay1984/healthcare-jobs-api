@@ -1,6 +1,9 @@
 using System.Security.Claims;
 
+using HealthcareJobs.API.Endpoints;
+using HealthcareJobs.Core.Interfaces;
 using HealthcareJobs.Infrastructure.Data;
+using HealthcareJobs.Infrastructure.Services;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +22,9 @@ Console.WriteLine($"MetadataAddress: {builder.Configuration["Authentik:MetadataA
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Scoped Services
+builder.Services.AddScoped<IUserService, UserService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -90,52 +96,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseCors("AllowFrontend");
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
-
-app.MapGet("/api/test/protected", (HttpContext context) =>
-{
-    var ctxUser = context.User;
-    if (ctxUser == null || ctxUser.Identity == null || !ctxUser.Identity.IsAuthenticated)
-    {
-        return Results.Unauthorized();
-    }
-    var claims = ctxUser.Claims;
-    var userId = claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value ?? "unknown";
-    var email = claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value ?? "unknown";
-
-    return Results.Ok(new
-    {
-        Message = "You have accessed a protected endpoint!",
-        UserId = userId,
-        Email = email,
-        Claims = claims.Select(c => new { c.Type, c.Value })
-    });
-})
-.WithName("GetProtected")
-.WithOpenApi()
-.RequireAuthorization();
+UserEndpoints.Map(app);
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
