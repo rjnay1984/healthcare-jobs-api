@@ -9,7 +9,7 @@ public class JobApplication : BaseEntity
     public DateTime AppliedAt { get; set; }
     public ApplicationStatus Status { get; set; } = ApplicationStatus.Submitted;
     public string? CoverLetter { get; set; }
-    
+
     // Navigation properties
     public Candidate Candidate { get; set; } = null!;
     public JobPosting JobPosting { get; set; } = null!;
