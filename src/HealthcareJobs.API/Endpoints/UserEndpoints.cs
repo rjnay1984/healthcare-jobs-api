@@ -7,29 +7,19 @@ namespace HealthcareJobs.API.Endpoints;
 
 public static class UserEndpoints
 {
-    public static void Map(WebApplication app)
+    public static RouteGroupBuilder MapUserEndpoints(this RouteGroupBuilder group)
     {
-        var group = app.MapGroup("/api/users").WithTags("Users");
         group.MapGet("/me", GetCurrentUser)
             .RequireAuthorization()
             .WithName("GetCurrentUser")
             .WithOpenApi();
+
         group.MapPost("/setup", CompleteUserSetup)
             .RequireAuthorization()
             .WithName("CompleteUserSetup")
             .WithOpenApi();
-    }
 
-    // Helper to get claim values
-    static string? GetClaimValue(ClaimsPrincipal? user, params string[] claimTypes)
-    {
-        if (user == null) return null;
-        foreach (var claimType in claimTypes)
-        {
-            var claim = user.FindFirst(claimType);
-            if (claim != null) return claim.Value;
-        }
-        return null;
+        return group;
     }
 
     private static async Task<IResult> GetCurrentUser(
@@ -50,22 +40,25 @@ public static class UserEndpoints
         var user = await userService.GetUserByAuthentikSubjectAsync(authentikSubject);
         var isSetupComplete = await userService.IsUserSetupCompleteAsync(authentikSubject);
 
-        return user == null
-            ? Results.Ok(new
+        if (user == null)
+        {
+            return Results.Ok(new
             {
                 exists = false,
                 isSetupComplete = false,
-                email
-            })
-            : Results.Ok(new UserResponse
-            {
-                Id = user.Id,
-                Email = user.Email,
-                Type = user.Type,
-                IsActive = user.IsActive,
-                IsSetupComplete = isSetupComplete,
-                CreatedAt = user.CreatedAt
+                email = email
             });
+        }
+
+        return Results.Ok(new UserResponse
+        {
+            Id = user.Id,
+            Email = user.Email,
+            Type = user.Type,
+            IsActive = user.IsActive,
+            IsSetupComplete = isSetupComplete,
+            CreatedAt = user.CreatedAt
+        });
     }
 
     private static async Task<IResult> CompleteUserSetup(
@@ -103,5 +96,16 @@ public static class UserEndpoints
         {
             return Results.BadRequest(new { error = ex.Message });
         }
+    }
+
+    private static string? GetClaimValue(System.Security.Claims.ClaimsPrincipal? user, params string[] claimTypes)
+    {
+        if (user == null) return null;
+        foreach (var claimType in claimTypes)
+        {
+            var claim = user.FindFirst(claimType);
+            if (claim != null) return claim.Value;
+        }
+        return null;
     }
 }
