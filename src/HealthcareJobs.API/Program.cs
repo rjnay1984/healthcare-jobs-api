@@ -25,6 +25,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 // Scoped Services
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IJobService, JobService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -98,6 +99,10 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseCors("AllowFrontend");
 
-UserEndpoints.Map(app);
+var users = app.MapGroup("/api/users").WithTags("Users");
+users.MapUserEndpoints();
+
+var jobs = app.MapGroup("/api/jobs").WithTags("Jobs");
+jobs.MapJobEndpoints();
 
 app.Run();
