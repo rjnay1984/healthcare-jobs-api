@@ -40,25 +40,22 @@ public static class UserEndpoints
         var user = await userService.GetUserByAuthentikSubjectAsync(authentikSubject);
         var isSetupComplete = await userService.IsUserSetupCompleteAsync(authentikSubject);
 
-        if (user == null)
-        {
-            return Results.Ok(new
+        return user == null
+            ? Results.Ok(new
             {
                 exists = false,
                 isSetupComplete = false,
                 email = email
+            })
+            : Results.Ok(new UserResponse
+            {
+                Id = user.Id,
+                Email = user.Email,
+                Type = user.Type,
+                IsActive = user.IsActive,
+                IsSetupComplete = isSetupComplete,
+                CreatedAt = user.CreatedAt
             });
-        }
-
-        return Results.Ok(new UserResponse
-        {
-            Id = user.Id,
-            Email = user.Email,
-            Type = user.Type,
-            IsActive = user.IsActive,
-            IsSetupComplete = isSetupComplete,
-            CreatedAt = user.CreatedAt
-        });
     }
 
     private static async Task<IResult> CompleteUserSetup(

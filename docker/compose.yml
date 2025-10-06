@@ -1,5 +1,7 @@
 services:
   authentik-postgresql:
+    networks:
+      - healthcare_jobs_network
     env_file:
       - .env
     environment:
@@ -20,6 +22,8 @@ services:
       - authentik_db_data:/var/lib/postgresql/data
   authentik-redis:
     command: --save 60 1 --loglevel warning
+    networks:
+      - healthcare_jobs_network
     healthcheck:
       interval: 30s
       retries: 5
@@ -33,6 +37,8 @@ services:
     volumes:
       - authentik_redis_data:/data
   authentik-server:
+    networks:
+      - healthcare_jobs_network
     command: server
     depends_on:
       authentik-postgresql:
@@ -58,6 +64,8 @@ services:
       - ./custom-templates:/templates
   authentik-worker:
     command: worker
+    networks:
+      - healthcare_jobs_network
     depends_on:
       authentik-postgresql:
         condition: service_healthy
@@ -80,8 +88,10 @@ services:
       - ./media:/media
       - ./certs:/certs
       - ./custom-templates:/templates
-  postgres:
-    image: postgres
+  app-postgres:
+    image: postgres:alpine
+    networks:
+      - healthcare_jobs_network
     environment:
       POSTGRES_DB: healthcare_jobs
       POSTGRES_USER: postgres
@@ -91,10 +101,28 @@ services:
     ports:
       - "5432:5432"
 
+  sessions-postgres:
+    image: postgres:alpine
+    networks:
+      - healthcare_jobs_network
+    environment:
+      POSTGRES_DB: sessions_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: sessions
+    ports:
+      - "5433:5432"
+    volumes:
+      - sessions_postgres_data:/var/lib/postgresql/data
+
 volumes:
   authentik_db_data:
     driver: local
   authentik_redis_data:
     driver: local
+  sessions_postgres_data:
+    driver: local
   postgres_data:
     driver: local
+networks:
+  healthcare_jobs_network:
+    driver: bridge
