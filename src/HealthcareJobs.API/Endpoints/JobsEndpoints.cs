@@ -3,8 +3,9 @@ using HealthcareJobs.Infrastructure.Data;
 using HealthcareJobs.Shared.DTOs;
 using HealthcareJobs.Shared.Enums;
 
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+
+using System.Security.Claims;
 
 namespace HealthcareJobs.API.Endpoints;
 
@@ -44,34 +45,9 @@ public static class JobEndpoints
     }
 
     private static async Task<IResult> SearchJobs(
-        IJobService jobService,
-        string? keywords = null,
-        bool? isRemote = null,
-        string? city = null,
-        string? state = null,
-        YearsOfExperience? minExperience = null,
-        decimal? minSalary = null,
-        [FromQuery] int[]? certificationIds = null,
-        [FromQuery] int[]? specialtyIds = null,
-        HealthcareOrganizationType? organizationType = null,
-        int page = 1,
-        int pageSize = 20)
+        [AsParameters] JobSearchRequest request,
+        IJobService jobService)
     {
-        var request = new JobSearchRequest
-        {
-            Keywords = keywords,
-            IsRemote = isRemote,
-            City = city,
-            State = state,
-            MinExperience = minExperience,
-            MinSalary = minSalary,
-            CertificationIds = certificationIds?.ToList(),
-            SpecialtyIds = specialtyIds?.ToList(),
-            OrganizationType = organizationType,
-            Page = page,
-            PageSize = pageSize
-        };
-
         var (jobList, totalCount) = await jobService.SearchJobsAsync(request);
 
         var response = jobList.Select(j => new JobResponse
@@ -154,15 +130,18 @@ public static class JobEndpoints
         IUserService userService,
         ApplicationDbContext dbContext)
     {
-        var user = await userService.GetCurrentUserAsync(context.User);
-        if (user == null)
+        var userId = GetUserId(context);
+        if (string.IsNullOrEmpty(userId))
             return Results.Unauthorized();
 
-        if (user.Type != UserType.Employer)
+        // Check if user is an employer
+        var userType = await userService.GetUserTypeAsync(userId);
+        if (userType != UserType.Employer)
             return Results.Forbid();
 
+        // Get employer entity
         var employer = await dbContext.Employers
-            .FirstOrDefaultAsync(e => e.UserId == user.Id);
+            .FirstOrDefaultAsync(e => e.AuthUserId == userId);
 
         if (employer == null)
             return Results.BadRequest(new { error = "Employer profile not found" });
@@ -186,15 +165,18 @@ public static class JobEndpoints
         IUserService userService,
         ApplicationDbContext dbContext)
     {
-        var user = await userService.GetCurrentUserAsync(context.User);
-        if (user == null)
+        var userId = GetUserId(context);
+        if (string.IsNullOrEmpty(userId))
             return Results.Unauthorized();
 
-        if (user.Type != UserType.Employer)
+        // Check if user is an employer
+        var userType = await userService.GetUserTypeAsync(userId);
+        if (userType != UserType.Employer)
             return Results.Forbid();
 
+        // Get employer entity
         var employer = await dbContext.Employers
-            .FirstOrDefaultAsync(e => e.UserId == user.Id);
+            .FirstOrDefaultAsync(e => e.AuthUserId == userId);
 
         if (employer == null)
             return Results.BadRequest(new { error = "Employer profile not found" });
@@ -217,15 +199,18 @@ public static class JobEndpoints
         IUserService userService,
         ApplicationDbContext dbContext)
     {
-        var user = await userService.GetCurrentUserAsync(context.User);
-        if (user == null)
+        var userId = GetUserId(context);
+        if (string.IsNullOrEmpty(userId))
             return Results.Unauthorized();
 
-        if (user.Type != UserType.Employer)
+        // Check if user is an employer
+        var userType = await userService.GetUserTypeAsync(userId);
+        if (userType != UserType.Employer)
             return Results.Forbid();
 
+        // Get employer entity
         var employer = await dbContext.Employers
-            .FirstOrDefaultAsync(e => e.UserId == user.Id);
+            .FirstOrDefaultAsync(e => e.AuthUserId == userId);
 
         if (employer == null)
             return Results.BadRequest(new { error = "Employer profile not found" });
@@ -246,15 +231,18 @@ public static class JobEndpoints
         IUserService userService,
         ApplicationDbContext dbContext)
     {
-        var user = await userService.GetCurrentUserAsync(context.User);
-        if (user == null)
+        var userId = GetUserId(context);
+        if (string.IsNullOrEmpty(userId))
             return Results.Unauthorized();
 
-        if (user.Type != UserType.Candidate)
+        // Check if user is a candidate
+        var userType = await userService.GetUserTypeAsync(userId);
+        if (userType != UserType.Candidate)
             return Results.Forbid();
 
+        // Get candidate entity
         var candidate = await dbContext.Candidates
-            .FirstOrDefaultAsync(c => c.UserId == user.Id);
+            .FirstOrDefaultAsync(c => c.AuthUserId == userId);
 
         if (candidate == null)
             return Results.BadRequest(new { error = "Candidate profile not found" });
@@ -276,5 +264,13 @@ public static class JobEndpoints
         {
             return Results.Conflict(new { error = ex.Message });
         }
+    }
+
+    // Helper method to get user ID from claims
+    private static string? GetUserId(HttpContext context)
+    {
+        return context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+               ?? context.User.FindFirst("sub")?.Value
+               ?? context.User.FindFirst("userId")?.Value;
     }
 }

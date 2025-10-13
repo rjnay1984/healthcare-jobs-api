@@ -6,7 +6,8 @@ namespace HealthcareJobs.Core.Entities;
 
 public class Candidate : BaseEntity
 {
-    public Guid UserId { get; set; }
+    [Required]
+    public required string AuthUserId { get; set; }
 
     [Required]
     [StringLength(100)]
@@ -31,7 +32,6 @@ public class Candidate : BaseEntity
     public string? ResumeUrl { get; set; }
 
     // Navigation properties
-    public User User { get; set; } = null!;
     public List<Certification> Certifications { get; set; } = [];
     public List<Specialty> Specialties { get; set; } = [];
     public List<JobApplication> JobApplications { get; set; } = [];
