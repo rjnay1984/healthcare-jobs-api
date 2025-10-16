@@ -1,4 +1,3 @@
-// src/HealthcareJobs.Shared/DTOs/JobSearchRequest.cs
 using HealthcareJobs.Shared.Enums;
 
 namespace HealthcareJobs.Shared.DTOs;

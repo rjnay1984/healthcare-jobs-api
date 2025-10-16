@@ -1,3 +1,4 @@
+using HealthcareJobs.API.Extensions;
 using HealthcareJobs.Core.Interfaces;
 using HealthcareJobs.Shared.DTOs;
 
@@ -32,17 +33,20 @@ public static class UserEndpoints
         var email = context.User.FindFirst(ClaimTypes.Email)?.Value
                     ?? context.User.FindFirst("email")?.Value;
 
+        var userTypeString = context.User.FindFirst("type")?.Value;
+        var userType = UserTypeExtensions.ParseUserType(userTypeString);
+
         if (string.IsNullOrEmpty(userId))
             return Results.Unauthorized();
 
-        var userType = await userService.GetUserTypeAsync(userId);
         var hasCompletedOnboarding = await userService.HasCompletedOnboardingAsync(userId);
 
         return Results.Ok(new
         {
-            betterAuthUserId = userId,
+            userId,
             email,
             userType,
+            name = context.User.Identity?.Name ?? null,
             hasCompletedOnboarding
         });
     }

@@ -1,5 +1,3 @@
-using System.Security.Claims;
-
 using HealthcareJobs.Core.Entities;
 using HealthcareJobs.Core.Interfaces;
 using HealthcareJobs.Infrastructure.Data;
@@ -53,19 +51,6 @@ public class UserService(ApplicationDbContext context) : IUserService
         await _context.SaveChangesAsync();
     }
 
-    public async Task<UserType?> GetUserTypeAsync(string authUserId)
-    {
-        var isCandidate = await _context.Candidates
-    .AnyAsync(c => c.AuthUserId == authUserId);
-
-        if (isCandidate) return UserType.Candidate;
-
-        var isEmployer = await _context.Employers
-            .AnyAsync(e => e.AuthUserId == authUserId);
-
-        return isEmployer ? UserType.Employer : null;
-    }
-
     public async Task<bool> HasCompletedOnboardingAsync(string authUserId)
     {
         var hasCandidate = await _context.Candidates
@@ -75,5 +60,22 @@ public class UserService(ApplicationDbContext context) : IUserService
             .AnyAsync(e => e.AuthUserId == authUserId);
 
         return hasCandidate || hasEmployer;
+    }
+
+    public async Task<UserType?> GetUserTypeAsync(string authUserId)
+    {
+        var isCandidate = await _context.Candidates
+            .AnyAsync(c => c.AuthUserId == authUserId);
+
+        if (isCandidate)
+            return UserType.Candidate;
+
+        var isEmployer = await _context.Employers
+            .AnyAsync(e => e.AuthUserId == authUserId);
+
+        if (isEmployer)
+            return UserType.Employer;
+
+        return null;
     }
 }

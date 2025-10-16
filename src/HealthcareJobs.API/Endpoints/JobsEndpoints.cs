@@ -1,3 +1,4 @@
+using HealthcareJobs.API.Extensions;
 using HealthcareJobs.Core.Interfaces;
 using HealthcareJobs.Infrastructure.Data;
 using HealthcareJobs.Shared.DTOs;
@@ -45,9 +46,32 @@ public static class JobEndpoints
     }
 
     private static async Task<IResult> SearchJobs(
-        [AsParameters] JobSearchRequest request,
+        HttpContext context,
         IJobService jobService)
     {
+        // Manually parse query parameters
+        var request = new JobSearchRequest
+        {
+            Keywords = context.Request.Query["keywords"].FirstOrDefault(),
+            IsRemote = bool.TryParse(context.Request.Query["isRemote"].FirstOrDefault(), out var isRemote) ? isRemote : null,
+            City = context.Request.Query["city"].FirstOrDefault(),
+            State = context.Request.Query["state"].FirstOrDefault(),
+            MinExperience = Enum.TryParse<YearsOfExperience>(context.Request.Query["minExperience"].FirstOrDefault(), out var exp) ? exp : null,
+            MinSalary = decimal.TryParse(context.Request.Query["minSalary"].FirstOrDefault(), out var salary) ? salary : null,
+            CertificationIds = [.. context.Request.Query["certificationIds"]
+                .Where(x => !string.IsNullOrEmpty(x))
+                .Select(x => int.TryParse(x, out var id) ? id : (int?)null)
+                .Where(x => x.HasValue)
+                .Select(x => x!.Value)],
+            SpecialtyIds = [.. context.Request.Query["specialtyIds"]
+                .Where(x => !string.IsNullOrEmpty(x))
+                .Select(x => int.TryParse(x, out var id) ? id : (int?)null)
+                .Where(x => x.HasValue)
+                .Select(x => x!.Value)],
+            OrganizationType = Enum.TryParse<HealthcareOrganizationType>(context.Request.Query["organizationType"].FirstOrDefault(), out var orgType) ? orgType : null,
+            Page = int.TryParse(context.Request.Query["page"].FirstOrDefault(), out var page) ? page : 1,
+            PageSize = int.TryParse(context.Request.Query["pageSize"].FirstOrDefault(), out var pageSize) ? pageSize : 20
+        };
         var (jobList, totalCount) = await jobService.SearchJobsAsync(request);
 
         var response = jobList.Select(j => new JobResponse
@@ -72,8 +96,8 @@ public static class JobEndpoints
                 State = j.JobLocation.State,
                 ZipCode = j.JobLocation.ZipCode
             } : null,
-            RequiredCertifications = j.RequiredCertifications.Select(c => c.Name).ToList(),
-            RequiredSpecialties = j.RequiredSpecialties.Select(s => s.Name).ToList()
+            RequiredCertifications = [.. j.RequiredCertifications.Select(c => c.Name)],
+            RequiredSpecialties = [.. j.RequiredSpecialties.Select(s => s.Name)]
         }).ToList();
 
         return Results.Ok(new
@@ -116,8 +140,8 @@ public static class JobEndpoints
                 State = job.JobLocation.State,
                 ZipCode = job.JobLocation.ZipCode
             } : null,
-            RequiredCertifications = job.RequiredCertifications.Select(c => c.Name).ToList(),
-            RequiredSpecialties = job.RequiredSpecialties.Select(s => s.Name).ToList()
+            RequiredCertifications = [.. job.RequiredCertifications.Select(c => c.Name)],
+            RequiredSpecialties = [.. job.RequiredSpecialties.Select(s => s.Name)]
         };
 
         return Results.Ok(response);
@@ -135,7 +159,8 @@ public static class JobEndpoints
             return Results.Unauthorized();
 
         // Check if user is an employer
-        var userType = await userService.GetUserTypeAsync(userId);
+        var userTypeString = context.User.FindFirst("type")?.Value;
+        var userType = UserTypeExtensions.ParseUserType(userTypeString);
         if (userType != UserType.Employer)
             return Results.Forbid();
 
