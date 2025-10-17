@@ -1,26 +1,5 @@
 services:
-  authentik-postgresql:
-    networks:
-      - healthcare_jobs_network
-    env_file:
-      - .env
-    environment:
-      POSTGRES_DB: ${PG_DB:-authentik}
-      POSTGRES_PASSWORD: ${PG_PASS:?database password required}
-      POSTGRES_USER: ${PG_USER:-authentik}
-    healthcheck:
-      interval: 30s
-      retries: 5
-      start_period: 20s
-      test:
-        - CMD-SHELL
-        - pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
-      timeout: 5s
-    image: docker.io/library/postgres:alpine
-    restart: unless-stopped
-    volumes:
-      - authentik_db_data:/var/lib/postgresql/data
-  authentik-redis:
+  redis:
     command: --save 60 1 --loglevel warning
     networks:
       - healthcare_jobs_network
@@ -35,59 +14,7 @@ services:
     image: docker.io/library/redis:alpine
     restart: unless-stopped
     volumes:
-      - authentik_redis_data:/data
-  authentik-server:
-    networks:
-      - healthcare_jobs_network
-    command: server
-    depends_on:
-      authentik-postgresql:
-        condition: service_healthy
-      authentik-redis:
-        condition: service_healthy
-    env_file:
-      - .env
-    environment:
-      AUTHENTIK_POSTGRESQL__HOST: authentik-postgresql
-      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
-      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
-      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
-      AUTHENTIK_REDIS__HOST: authentik-redis
-      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?secret key required}
-    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2025.8.4}
-    ports:
-      - ${COMPOSE_PORT_HTTP:-9000}:9000
-      - ${COMPOSE_PORT_HTTPS:-9443}:9443
-    restart: unless-stopped
-    volumes:
-      - ./media:/media
-      - ./custom-templates:/templates
-  authentik-worker:
-    command: worker
-    networks:
-      - healthcare_jobs_network
-    depends_on:
-      authentik-postgresql:
-        condition: service_healthy
-      authentik-redis:
-        condition: service_healthy
-    env_file:
-      - .env
-    environment:
-      AUTHENTIK_POSTGRESQL__HOST: authentik-postgresql
-      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
-      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
-      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
-      AUTHENTIK_REDIS__HOST: authentik-redis
-      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?secret key required}
-    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2025.8.4}
-    restart: unless-stopped
-    user: root
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./media:/media
-      - ./certs:/certs
-      - ./custom-templates:/templates
+      - redis_data:/data
   app-postgres:
     image: postgres:alpine
     networks:
@@ -100,8 +27,14 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-
-  sessions-postgres:
+  mailpit:
+    image: axllent/mailpit:latest
+    networks:
+      - healthcare_jobs_network
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+  auth-postgres:
     image: postgres:alpine
     networks:
       - healthcare_jobs_network
@@ -112,14 +45,14 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - sessions_postgres_data:/var/lib/postgresql/data
+      - auth_db_data:/var/lib/postgresql/data
 
 volumes:
   authentik_db_data:
     driver: local
-  authentik_redis_data:
+  redis_data:
     driver: local
-  sessions_postgres_data:
+  auth_db_data:
     driver: local
   postgres_data:
     driver: local

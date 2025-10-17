@@ -1,7 +1,8 @@
-using System.Security.Claims;
-
+using HealthcareJobs.API.Extensions;
 using HealthcareJobs.Core.Interfaces;
 using HealthcareJobs.Shared.DTOs;
+
+using System.Security.Claims;
 
 namespace HealthcareJobs.API.Endpoints;
 
@@ -26,36 +27,28 @@ public static class UserEndpoints
         HttpContext context,
         IUserService userService)
     {
-        var authentikSubject = GetClaimValue(context.User,
-            ClaimTypes.NameIdentifier,
-            "sub");
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                     ?? context.User.FindFirst("sub")?.Value;
 
-        var email = GetClaimValue(context.User,
-            ClaimTypes.Email,
-            "email");
+        var email = context.User.FindFirst(ClaimTypes.Email)?.Value
+                    ?? context.User.FindFirst("email")?.Value;
 
-        if (string.IsNullOrEmpty(authentikSubject))
+        var userTypeString = context.User.FindFirst("type")?.Value;
+        var userType = UserTypeExtensions.ParseUserType(userTypeString);
+
+        if (string.IsNullOrEmpty(userId))
             return Results.Unauthorized();
 
-        var user = await userService.GetUserByAuthentikSubjectAsync(authentikSubject);
-        var isSetupComplete = await userService.IsUserSetupCompleteAsync(authentikSubject);
+        var hasCompletedOnboarding = await userService.HasCompletedOnboardingAsync(userId);
 
-        return user == null
-            ? Results.Ok(new
-            {
-                exists = false,
-                isSetupComplete = false,
-                email = email
-            })
-            : Results.Ok(new UserResponse
-            {
-                Id = user.Id,
-                Email = user.Email,
-                Type = user.Type,
-                IsActive = user.IsActive,
-                IsSetupComplete = isSetupComplete,
-                CreatedAt = user.CreatedAt
-            });
+        return Results.Ok(new
+        {
+            userId,
+            email,
+            userType,
+            name = context.User.Identity?.Name ?? null,
+            hasCompletedOnboarding
+        });
     }
 
     private static async Task<IResult> CompleteUserSetup(
@@ -63,46 +56,24 @@ public static class UserEndpoints
         UserSetupRequest request,
         IUserService userService)
     {
-        var authentikSubject = GetClaimValue(context.User,
-            ClaimTypes.NameIdentifier,
-            "sub");
+        var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                     ?? context.User.FindFirst("sub")?.Value;
 
-        var email = GetClaimValue(context.User,
-            ClaimTypes.Email,
-            "email");
+        var email = context.User.FindFirst(ClaimTypes.Email)?.Value
+                    ?? context.User.FindFirst("email")?.Value;
 
-        if (string.IsNullOrEmpty(authentikSubject) || string.IsNullOrEmpty(email))
+        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(email))
             return Results.Unauthorized();
 
         try
         {
-            var user = await userService.CompleteUserSetupAsync(authentikSubject, email, request);
-            var isSetupComplete = await userService.IsUserSetupCompleteAsync(authentikSubject);
+            await userService.CompleteOnboardingAsync(userId, email, request);
 
-            return Results.Ok(new UserResponse
-            {
-                Id = user.Id,
-                Email = user.Email,
-                Type = user.Type,
-                IsActive = user.IsActive,
-                IsSetupComplete = isSetupComplete,
-                CreatedAt = user.CreatedAt
-            });
+            return Results.Ok(new { message = "Onboarding completed successfully" });
         }
         catch (ArgumentException ex)
         {
             return Results.BadRequest(new { error = ex.Message });
         }
-    }
-
-    private static string? GetClaimValue(System.Security.Claims.ClaimsPrincipal? user, params string[] claimTypes)
-    {
-        if (user == null) return null;
-        foreach (var claimType in claimTypes)
-        {
-            var claim = user.FindFirst(claimType);
-            if (claim != null) return claim.Value;
-        }
-        return null;
     }
 }

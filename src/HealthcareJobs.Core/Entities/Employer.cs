@@ -6,7 +6,8 @@ namespace HealthcareJobs.Core.Entities;
 
 public class Employer : BaseEntity
 {
-    public Guid UserId { get; set; }
+    [Required]
+    public required string AuthUserId { get; set; }
 
     [Required]
     [StringLength(200)]
@@ -26,7 +27,6 @@ public class Employer : BaseEntity
     public string? Website { get; set; }
 
     // Navigation properties
-    public User User { get; set; } = null!;
     public Address? CompanyAddress { get; set; }
     public List<JobPosting> JobPostings { get; set; } = [];
 }

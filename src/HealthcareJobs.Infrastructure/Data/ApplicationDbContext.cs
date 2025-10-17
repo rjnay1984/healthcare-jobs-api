@@ -9,7 +9,6 @@ namespace HealthcareJobs.Infrastructure.Data;
 public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : DbContext(options)
 {
     // Main entities
-    public DbSet<User> Users { get; set; }
     public DbSet<Candidate> Candidates { get; set; }
     public DbSet<Employer> Employers { get; set; }
     public DbSet<JobPosting> JobPostings { get; set; }
@@ -27,10 +26,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         modelBuilder.Entity<Candidate>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasOne(e => e.User)
-                .WithOne()
-                .HasForeignKey<Candidate>(e => e.UserId) // Explicitly specify foreign key to avoid shadow property
-                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.AuthUserId).IsUnique();
 
             entity.Property(e => e.FirstName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.LastName).IsRequired().HasMaxLength(100);
@@ -47,10 +43,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         modelBuilder.Entity<Employer>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasOne(e => e.User)
-                .WithOne()
-                .HasForeignKey<Employer>(e => e.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.AuthUserId).IsUnique();
 
             entity.Property(e => e.CompanyName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.NPINumber).HasMaxLength(20);
